@@ -1,58 +1,13 @@
+# Use the latest 2.1 version of CircleCI pipeline process engine. See: https://circleci.com/docs/2.0/configuration-reference
 version: 2.1
-executors:
-  builder:
-    docker:
-      - image: docker:git
-    environment:
-      GLIBC_VERSION: 2.33
-    working_directory: ~/docker-glibc-builder
-  artefact-uploader:
-    docker:
-      - image: golang:alpine
-    working_directory: ~/docker-glibc-builder
-jobs:
-  build:
-    executor: builder
-    steps:
-      - checkout
-      - setup_remote_docker
-      - run:
-          command: mkdir -p artefacts
-          name: Create directory for storing artefacts
-      - run:
-          command: docker build . --tag sgerrand/glibc-builder:$CIRCLE_SHA1
-          name: Create Docker image
-      - run:
-          command: docker run --rm --env GLIBC_VERSION --env STDOUT=1 sgerrand/glibc-builder:$CIRCLE_SHA1 > artefacts/glibc-bin-$GLIBC_VERSION-0-$(uname -m).tar.gz
-          name: Build glibc package
-      - persist_to_workspace:
-          root: .
-          paths: artefacts
-      - store_artifacts:
-          path: artefacts
-  upload-master:
-    executor: artefact-uploader
-    steps:
-      - run:
-          command: apk add --no-cache git openssh-client
-          name: Install dependencies of go get
-      - attach_workspace:
-          at: .
-      - run:
-          command: go get github.com/tcnksm/ghr
-          name: Install ghr executable
-      - deploy:
-          name: Upload to GitHub release
-          command: ghr -r $CIRCLE_PROJECT_REPONAME -u $CIRCLE_PROJECT_USERNAME --prerelease --delete unreleased artefacts
+# Use a package of configuration called an orb.
+orbs:
+  # Declare a dependency on the welcome-orb
+  welcome: circleci/welcome-orb@0.4.1
+# Orchestrate or schedule a set of jobs
 workflows:
-  build-compile-upload:
+  # Name the workflow "welcome"
+  welcome:
+    # Run the welcome/run job in its own container
     jobs:
-      - build
-      - upload-master:
-          filters:
-            branches:
-              only: master
-            tags:
-              ignore: /.*/
-          requires:
-            - build
+      - welcome/run
